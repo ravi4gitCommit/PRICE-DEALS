@@ -1,10 +1,12 @@
+
 import { LogIn, Rabbit, Shield, TrendingDown, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { createClient } from "@/utils/superbase/server";
+import { getPorducts } from "@/app/auth/callback/actions";
 import Image from "next/image";
 import AddProForm from "@/components/AddProForm";
 import AuthBtn from "@/components/AuthBtn";
-import { createClient } from "@/utils/superbase/server";
-
+import ProductCard from "@/components/ProductCard";
 export default async function Home() {
   const supabase = await createClient();
 
@@ -12,7 +14,8 @@ export default async function Home() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const products = [];
+  const products = user ? await getPorducts() : [];
+
 
   const Features = [
     {
@@ -114,6 +117,30 @@ export default async function Home() {
           )}
 
         </div>
+      </section>
+
+      <section>
+        {user && products.length > 0 && (
+          <section className="max-w-8xl mx-auto px-4 pb-20 text-center">
+            <div className="flex items-center justify-center mb-6">
+              <h3 className="text-2xl font-bold text-gray-900">
+                Your Tracked Products
+              </h3>
+
+              <span className="text-sm text-gray-500">
+                {products.length} product{products.length === 1 ? "product" : "products"} being tracked
+              </span>
+
+              <div className="grid gap-6 md:grid-cols-2 items-start">
+              {products.map((product) => (
+               <ProductCard key={product.id} product={product}  user={user} />
+                ))}
+             </div>
+              
+              
+            </div>
+          </section>
+        )}
       </section>
 
       {user && products.length === 0 && (
