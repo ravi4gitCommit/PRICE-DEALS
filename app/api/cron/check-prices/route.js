@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { crawl } from "@/lib/firecrawl";
+import { sendPriceDropAlert } from "@/lib/email";
 
 export async function GET() {
     return NextResponse.json({
@@ -24,16 +26,11 @@ export async function POST(request) {
             process.env.NEXT_PUBLIC_SUPABASE_URL,
             process.env.SUPABASE_SERVICE_ROLE_KEY
         );
-        // Get all products
-        const { data: products, error: productsError } =
-            await supabase
-                .from("products")
-                .select("*");
 
-                console.log("SUPABASE URL:", process.env.NEXT_PUBLIC_SUPABASE_URL);
-console.log("SERVICE KEY EXISTS:", !!process.env.SUPABASE_SERVICE_ROLE_KEY);
-console.log("PRODUCTS:", products);
-console.log("PRODUCTS ERROR:", productsError);
+        // Get all products
+        const { data: products, error: productsError } = await supabase
+            .from("products")
+            .select("*");
 
         if (productsError) {
             throw productsError;
@@ -50,8 +47,81 @@ console.log("PRODUCTS ERROR:", productsError);
         // Check every product
         for (const product of products) {
             try {
-                // TODO: Add your Firecrawl product fetching logic here
-                console.log(`Checking product: ${product.name}`);
+                // 1. Re-scrape the product page for the current price
+                const productData = await crawl(product.url);
+
+                if (
+                    productData?.currentPrice === undefined ||
+                    productData?.currentPrice === null
+                ) {
+                    throw new Error("No price extracted from product page");
+                }
+
+                // 2. Normalize price safely (avoids parseFloat("67,900") === 67 bug)
+                const normalizedPrice = String(productData.currentPrice)
+                    .replace(/[^\d.,-]/g, "")
+                    .replace(/,/g, "");
+                const newPrice = Number(normalizedPrice);
+
+                if (!Number.isFinite(newPrice)) {
+                    throw new Error("Invalid product price after normalization");
+                }
+
+                const oldPrice = Number(product.current_price);
+                const priceChanged = newPrice !== oldPrice;
+
+                if (priceChanged) {
+                    // 3. Update stored price
+                    const { error: updateError } = await supabase
+                        .from("products")
+                        .update({ current_price: newPrice })
+                        .eq("id", product.id);
+
+                    if (updateError) {
+                        throw updateError;
+                    }
+
+                    // 4. Insert price_history row
+                    const { error: historyError } = await supabase
+                        .from("price_history")
+                        .insert({
+                            product_id: product.id,
+                            price: newPrice,
+                            currency:
+                                product.currency ||
+                                productData.currencyCode ||
+                                "INR",
+                        });
+
+                    if (historyError) {
+                        throw historyError;
+                    }
+
+                    result.priceChanges++;
+
+                    // 5. Send alert only when price dropped
+                    if (newPrice < oldPrice) {
+                        const {
+                            data: userData,
+                            error: userError,
+                        } = await supabase.auth.admin.getUserById(
+                            product.user_id
+                        );
+
+                        if (!userError && userData?.user?.email) {
+                            const emailResult = await sendPriceDropAlert(
+                                userData.user.email,
+                                { ...product, current_price: newPrice },
+                                oldPrice,
+                                newPrice
+                            );
+
+                            if (!emailResult?.error) {
+                                result.alertsSent++;
+                            }
+                        }
+                    }
+                }
 
                 result.updated++;
             } catch (error) {
