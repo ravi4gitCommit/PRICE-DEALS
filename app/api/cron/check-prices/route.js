@@ -78,4 +78,3 @@ console.log("PRODUCTS ERROR:", productsError);
         );
     }
 }
-// curl -X POST https://https://pricedeals.vercel.app//api/cron/check-prices -H "Authorization: Bearer 60a189dba5bdb5a5e14facf71f6e9b67d674d4c92dcff615689211502f272b70"
