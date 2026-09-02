@@ -123,15 +123,21 @@ export default async function Home() {
         {user && products.length > 0 && (
           <section className="max-w-8xl mx-auto px-4 pb-20 text-center">
             <div className="flex items-center justify-center mb-6">
-              <h3 className="text-2xl font-bold text-gray-900">
-                Your Tracked Products
-              </h3>
+            <div className="mb-6">
+  <h2 className="text-2xl font-bold text-gray-900">
+    Your Tracked Products
+  </h2>
+
+  <p className="text-sm text-gray-500 mt-1">
+    Products you are currently tracking
+  </p>
+</div>
 
               <span className="text-sm text-gray-500">
                 {products.length} product{products.length === 1 ? "product" : "products"} being tracked
               </span>
 
-              <div className="grid gap-6 md:grid-cols-2 items-start">
+              <div className="grid gap-6 md:grid-cols-2">
               {products.map((product) => (
                <ProductCard key={product.id} product={product}  user={user} />
                 ))}

@@ -41,14 +41,14 @@ const ProductCard = ({ product }) => {
   };
 
   return (
-    <Card className="overflow-hidden border-gray-200 bg-white shadow-sm hover:shadow-lg transition-all duration-300">
+    <Card className="w-full max-w-2xl overflow-hidden border-gray-200 bg-white shadow-sm hover:shadow-lg transition-all duration-300">
       
       {/* Product Header */}
       <CardHeader className="pb-4">
         <div className="flex gap-4">
           
           {/* Product Image */}
-          <div className="w-20 h-20 shrink-0 rounded-xl border bg-gray-50 flex items-center justify-center overflow-hidden">
+          <div className="w-20 h-24 shrink-0 rounded-xl border bg-gray-50 flex items-center justify-center overflow-hidden">
             {product.image_url ? (
               <img
                 src={product.image_url}
