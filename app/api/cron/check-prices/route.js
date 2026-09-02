@@ -1,5 +1,5 @@
-import { createClient } from "@/utils/superbase/server";
 import { NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 
 export async function GET() {
     return NextResponse.json({
@@ -20,13 +20,20 @@ export async function POST(request) {
             );
         }
 
-        const supabase = await createClient();
-
+        const supabase = createClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL,
+            process.env.SUPABASE_SERVICE_ROLE_KEY
+        );
         // Get all products
         const { data: products, error: productsError } =
             await supabase
                 .from("products")
                 .select("*");
+
+                console.log("SUPABASE URL:", process.env.NEXT_PUBLIC_SUPABASE_URL);
+console.log("SERVICE KEY EXISTS:", !!process.env.SUPABASE_SERVICE_ROLE_KEY);
+console.log("PRODUCTS:", products);
+console.log("PRODUCTS ERROR:", productsError);
 
         if (productsError) {
             throw productsError;
@@ -71,3 +78,4 @@ export async function POST(request) {
         );
     }
 }
+// curl -X POST https://https://pricedeals.vercel.app//api/cron/check-prices -H "Authorization: Bearer 60a189dba5bdb5a5e14facf71f6e9b67d674d4c92dcff615689211502f272b70"
