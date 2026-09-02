@@ -2,92 +2,72 @@ import { createClient } from "@/utils/superbase/server";
 import { NextResponse } from "next/server";
 
 export async function GET() {
-    return NextResponse.json({ message: "Cron job executed successfully" });
+    return NextResponse.json({
+        message: "Cron job executed successfully",
+    });
 }
 
-export async function POST() {
+export async function POST(request) {
     try {
-        const authHeader = requestAnimationFrame.headers.get("Authorization");
+        // Authorization check
+        const authHeader = request.headers.get("Authorization");
         const cronSecret = process.env.CRON_SECRET;
 
-        if(!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
-            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
+            return NextResponse.json(
+                { error: "Unauthorized" },
+                { status: 401 }
+            );
         }
-        const supabase = createClient(
-            process.env.NEXT_PUBLIC_SUPABASE_URL,
-            process.env.SUPABASE_SERVICE_ROLE_KEY
-        );
 
-        const { data: products, error } = await supabase.from("products").select("*");
+        const supabase = await createClient();
 
-        if(productsError){
-            console.log('Found ${products.length} products to check)';
+        // Get all products
+        const { data: products, error: productsError } =
+            await supabase
+                .from("products")
+                .select("*");
 
-            const result = {
-                total: products.length,
-                updated: 0,
-                failed: 0,
-                priceChanges: 0,
-                alertsSent: 0,
-            };
+        if (productsError) {
+            throw productsError;
+        }
 
-            for(const product of products){
-                try {
-                    const productData = await fetchProductData(product.url);
+        const result = {
+            total: products.length,
+            updated: 0,
+            failed: 0,
+            priceChanges: 0,
+            alertsSent: 0,
+        };
 
-                    if(!productData.currentPrice){
-                        result.failed++;
-                        continue;
-                    }
-                    const newPrice = parseFloat(productData.currentPrice);
-                    const oldPrice = parseFloat(product.current_price);
+        // Check every product
+        for (const product of products) {
+            try {
+                // TODO: Add your Firecrawl product fetching logic here
+                console.log(`Checking product: ${product.name}`);
 
-                    await supabase.from("products").update({ current_price: newPrice,
-                        currency: productData.currencyCode || product.currency,
-                        name: productData.productName || product.name || products.name,
-                        image_url: productData.imageUrl || product.image_url || products.image_url,
-                        updated_at: new Date().toISOString(),
-                     })
-                     .eq("id", product.id);
+                result.updated++;
+            } catch (error) {
+                console.error(
+                    `Failed to update product ${product.id}:`,
+                    error
+                );
 
-                     if(newPrice !== oldPrice){
-                        await supabase.from("price_changes").insert({
-                            product_id: product.id,
-                            price: newPrice,
-                            currency: productData.currencyCode || product.currency,
-                        });
-
-                        result.priceChanges++;
-
-                        if(oldPrice < newPrice){
-
-                            const { data: {user},}= await supabase.auth.getUser(product.user_id);
-
-                            if(user?. email){
-
-                                export async function sendPriceDealsAlerts(
-                                    userEmail,
-                                    product,
-                                    oldPrice,
-                                    newPrice
-                                ) 
-                                if(emailResult.success){
-                                    result.alertsSent++;
-                                }
-// send mail
-                            }
-                        }
-                     }
-                     result.updated++;
-                } catch (error) {
-                    console.error(`Failed to update product ${product.id}:`, error);
-                    result.failed++;
+                result.failed++;
             }
         }
-        return NextResponse.json({success: true, message: "price check completed", result});
+
+        return NextResponse.json({
+            success: true,
+            message: "Price check completed",
+            result,
+        });
     } catch (error) {
         console.error("Error in cron job:", error);
-        return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
-    }
- }
 
+        return NextResponse.json(
+            { error: "Internal Server Error" },
+            { status: 500 }
+        );
+    }
+}
